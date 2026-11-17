@@ -1,0 +1,14 @@
+{
+  "name": "spi-mondaishu",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SPI対策の問題集。非言語60問・言語30問。解説つきの静的サイト。",
+  "type": "module",
+  "scripts": {
+    "verify": "node scripts/verify.mjs",
+    "test:app": "node scripts/test-app.mjs",
+    "test": "node scripts/verify.mjs && node scripts/test-app.mjs",
+    "build": "node scripts/build-data.mjs",
+    "serve": "python3 -m http.server 8777"
+  }
+}

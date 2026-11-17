@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="SPI対策の問題集。非言語60問・言語30問。解説つき。">
+<title>SPI 問題集</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f6d8a'/%3E%3Ctext x='16' y='23' font-size='18' font-family='sans-serif' font-weight='700' text-anchor='middle' fill='%23fff'%3EQ%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/app.css?v=14">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <h1 class="brand">SPI 問題集</h1>
+    <button id="themeBtn" class="icon-btn" type="button" aria-label="表示テーマを切り替える">
+      <span id="themeIcon" aria-hidden="true">◐</span>
+    </button>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab is-on" role="tab" data-view="list" aria-selected="true">問題一覧</button>
+    <button class="tab" role="tab" data-view="stats" aria-selected="false">記録</button>
+  </nav>
+</header>
+
+<main id="main">
+
+  <!-- ───────── 問題一覧 ───────── -->
+  <section id="view-list" class="view">
+    <div class="practice">
+      <h2 class="sec-h flush">ランダム出題</h2>
+      <div class="filter-row" id="filterCat" role="group" aria-label="分野を選ぶ"></div>
+      <div class="filter-row" id="filterDiff" role="group" aria-label="難易度を選ぶ"></div>
+      <div class="filter-row size-row" id="sizeRow" role="group" aria-label="問題数を選ぶ"></div>
+      <p class="practice-note">分野と難易度を選んで問題数を押すと、その場でランダムに出題します。<br><span id="poolCount"></span></p>
+    </div>
+
+    <div class="practice challenge">
+      <h2 class="sec-h flush">連続正解チャレンジ</h2>
+      <p class="practice-note">上で選んだ分野と難易度から出題します。早く正解するほど高得点（最高1000点、制限時間を過ぎたら100点）。1問でも間違えたらゲームオーバーです。</p>
+      <div class="challenge-row">
+        <button id="challengeBtn" class="sizebtn" type="button">スタート</button>
+        <span id="bestScore" class="best-score"></span>
+      </div>
+    </div>
+
+    <h2 class="sec-h">すべての問題</h2>
+    <div class="filter-row" id="filterState" role="group" aria-label="状態でしぼりこむ"></div>
+    <p id="listCount" class="lede"></p>
+    <ul id="qlist" class="qlist"></ul>
+  </section>
+
+  <!-- ───────── 問題 ───────── -->
+  <section id="view-quiz" class="view" hidden>
+    <div class="quiz-top">
+      <button id="backToList" class="ghost-btn small" type="button">← 一覧へ</button>
+      <span id="quizPos" class="quiz-pos"></span>
+      <span id="liveScore" class="live-score" hidden></span>
+    </div>
+
+    <article id="card" class="card" aria-live="polite">
+      <div class="meta">
+        <span id="mNum" class="chip chip-num">—</span>
+        <span id="mCat" class="chip chip-cat">—</span>
+        <span id="mTopic" class="chip">—</span>
+        <span id="mDiff" class="chip chip-diff">—</span>
+        <span id="timer" class="timer" hidden>--:--</span>
+      </div>
+
+      <div id="qtext" class="qtext">読み込み中…</div>
+      <div id="qFig"></div>
+
+      <div class="hintbox">
+        <button id="hintBtn" class="hint-toggle" type="button" aria-expanded="false" aria-controls="hintBody">
+          <span id="hintLabel">ヒントを見る</span>
+          <span id="hintCaret" class="caret" aria-hidden="true">▾</span>
+        </button>
+        <div id="hintWrap" hidden>
+          <p id="hintBody" class="hint-body"></p>
+          <div id="hintFig"></div>
+        </div>
+      </div>
+
+      <!-- 非言語のときだけ出す。言語の問題では丸ごと隠れる -->
+      <div id="tools" class="tools" hidden>
+        <button id="toolsBtn" class="tools-toggle" type="button" aria-expanded="false" aria-controls="toolsBody">
+          <span>計算機とメモ</span>
+          <span id="toolsCaret" class="caret" aria-hidden="true">▾</span>
+        </button>
+
+        <div id="toolsBody" class="tools-body" hidden>
+          <div class="calc">
+            <output id="calcOut" class="calc-out" aria-live="polite">0</output>
+            <div id="calcKeys" class="calc-keys"></div>
+            <button id="toMemo" class="tools-mini" type="button">計算結果をメモへ</button>
+          </div>
+
+          <div class="memo">
+            <label class="memo-label" for="memoBox">メモ</label>
+            <textarea id="memoBox" class="memo-box" rows="5"
+              placeholder="途中式や計算結果を書いておけます。問題ごとに保存されます。"></textarea>
+          </div>
+
+          <p class="tools-note">本番で電卓が使えるのはWEBテスティングだけです。テストセンターとペーパーテストでは使えないので、慣れてきたら筆算で解いてみてください。</p>
+        </div>
+      </div>
+
+      <ul id="choices" class="choices"></ul>
+
+      <div id="result" class="result" hidden>
+        <div id="verdict" class="verdict"></div>
+        <h2 class="exp-h">解説</h2>
+        <div id="explanation" class="explanation"></div>
+        <div id="expFig"></div>
+        <p id="refline" class="refline"></p>
+        <button id="retryBtn" class="tools-mini" type="button">この問題をやり直す</button>
+      </div>
+    </article>
+
+    <div class="quiz-nav">
+      <button id="prevQ" class="nav-btn" type="button">← 前の問題</button>
+      <button id="nextQ" class="nav-btn primary" type="button">次の問題 →</button>
+    </div>
+
+    <div class="foot-actions">
+      <button id="timerToggle" class="ghost-btn" type="button">タイマーを隠す</button>
+    </div>
+  </section>
+
+  <!-- ───────── 出題の結果 ───────── -->
+  <section id="view-result" class="view" hidden>
+    <div class="scorebox">
+      <div id="scoreBig" class="score-big">—</div>
+      <div id="scoreSub" class="score-sub"></div>
+    </div>
+    <ul id="resultList" class="qlist"></ul>
+    <div class="quiz-nav">
+      <button id="againBtn" class="nav-btn primary" type="button">同じ条件でもう一度</button>
+      <button id="toListBtn" class="nav-btn" type="button">一覧へ戻る</button>
+    </div>
+  </section>
+
+  <!-- ───────── 記録 ───────── -->
+  <section id="view-stats" class="view" hidden>
+    <div class="statgrid">
+      <div class="stat"><div id="sSolved" class="stat-v">0</div><div class="stat-k">解いた数</div></div>
+      <div class="stat"><div id="sRate" class="stat-v">—</div><div class="stat-k">正答率</div></div>
+      <div class="stat"><div id="sWrong" class="stat-v">0</div><div class="stat-k">間違えた数</div></div>
+    </div>
+
+    <h2 class="sec-h">分野ごとの正答率</h2>
+    <ul id="topicStats" class="topicstats"></ul>
+
+    <h2 class="sec-h">難易度ごとの正答率</h2>
+    <ul id="diffStats" class="topicstats"></ul>
+
+    <h2 class="sec-h">データ</h2>
+    <p id="storeNote" class="note"></p>
+    <button id="resetBtn" class="ghost-btn danger" type="button">記録をすべて消す</button>
+  </section>
+
+</main>
+
+<footer class="pagefoot">
+  <p>問題はSPIのテキストを参考に作成したオリジナルです。検証していますが誤りがある場合があります。</p>
+</footer>
+
+<script src="data/questions.js?v=14"></script>
+<script src="assets/app.js?v=14"></script>
+</body>
+</html>
