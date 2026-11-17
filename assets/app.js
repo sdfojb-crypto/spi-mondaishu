@@ -69,7 +69,7 @@
     themeBtn: $('themeBtn'), themeIcon: $('themeIcon'),
     challengeBtn: $('challengeBtn'), bestScore: $('bestScore'), liveScore: $('liveScore'),
     filterCat: $('filterCat'), filterDiff: $('filterDiff'), filterState: $('filterState'),
-    sizeRow: $('sizeRow'), poolCount: $('poolCount'),
+    sizeRow: $('sizeRow'), poolCount: $('poolCount'), sizeNote: $('sizeNote'),
     listCount: $('listCount'), qlist: $('qlist'),
     backToList: $('backToList'), quizPos: $('quizPos'),
     mNum: $('mNum'), mCat: $('mCat'), mTopic: $('mTopic'), mDiff: $('mDiff'), timer: $('timer'),
@@ -167,7 +167,7 @@
       b.className = 'sizebtn';
       b.textContent = n + '問';
       b.setAttribute('data-size', String(n));
-      b.addEventListener('click', function () { startSession(store.filterCat, store.filterDiff, n); });
+      b.addEventListener('click', function () { startSession(cond(), n); });
       el.sizeRow.appendChild(b);
     });
   }
@@ -183,30 +183,44 @@
     return a;
   }
 
-  /** 分野に合う問題から n 問をランダムに選ぶ。まだ解いていない問題を先に使う */
-  /** 分野と難易度に合う問題のID。状態（未解答・間違えた）はランダム出題では見ない */
-  function pool(cat, diff) {
+  /** 一番上の「出題の条件」。ランダム出題・チャレンジ・一覧のすべてに効く */
+  function cond() { return { cat: store.filterCat, diff: store.filterDiff, state: store.filterState }; }
+
+  function matches(q, c) {
+    var r = store.results[q.id];
+    if (c.cat !== 'all' && q.category !== c.cat) return false;
+    if (c.diff !== 'all' && String(q.difficulty) !== c.diff) return false;
+    if (c.state === 'unsolved' && r) return false;
+    if (c.state === 'wrong' && (!r || r.correct)) return false;
+    return true;
+  }
+
+  /** 条件に合う問題のID */
+  function pool(c) {
     var out = [];
-    for (var i = 0; i < N; i++) {
-      var q = DATA[i];
-      if (cat !== 'all' && q.category !== cat) continue;
-      if (diff !== 'all' && String(q.difficulty) !== diff) continue;
-      out.push(q.id);
-    }
+    for (var i = 0; i < N; i++) if (matches(DATA[i], c)) out.push(DATA[i].id);
     return out;
   }
 
-  function pickRandom(cat, diff, n) {
-    var ids = pool(cat, diff);
+  /** 結果の画面に出す条件の名前 */
+  function condName(c) {
+    return (c.cat === 'all' ? '全分野' : c.cat) + '　'
+      + (c.diff === 'all' ? '難易度すべて' : '難易度★' + c.diff)
+      + (c.state === 'unsolved' ? '　未解答だけ' : c.state === 'wrong' ? '　間違えた問題だけ' : '');
+  }
+
+  /** 条件に合う問題から n 問をランダムに選ぶ。まだ解いていない問題を先に使う */
+  function pickRandom(c, n) {
+    var ids = pool(c);
     var fresh = [], used = [];
     ids.forEach(function (id) { (store.results[id] ? used : fresh).push(id); });
     return shuffle(fresh).concat(shuffle(used)).slice(0, n);
   }
 
-  function startSession(cat, diff, n) {
-    var ids = pickRandom(cat, diff, n);
+  function startSession(c, n) {
+    var ids = pickRandom(c, n);
     if (!ids.length) return;
-    session = { mode: 'set', ids: ids, pos: 0, answers: {}, cat: cat, diff: diff, size: n };
+    session = { mode: 'set', ids: ids, pos: 0, answers: {}, cond: c, size: n };
     openQuestion(INDEX_BY_ID[ids[0]]);
   }
 
@@ -228,13 +242,14 @@
   /** 1234567 → 1,234,567 */
   function fmtNum(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 
-  function bestKey(cat, diff) { return cat + '|' + diff; }
-  function bestOf(cat, diff) { return store.bestPts[bestKey(cat, diff)] || 0; }
+  // 状態が「すべて」のときは以前と同じ鍵にして、今までの自己ベストを引き継ぐ
+  function bestKey(c) { return c.cat + '|' + c.diff + (c.state === 'all' ? '' : '|' + c.state); }
+  function bestOf(c) { return store.bestPts[bestKey(c)] || 0; }
 
-  function startChallenge(cat, diff) {
-    var ids = shuffle(pool(cat, diff));
+  function startChallenge(c) {
+    var ids = shuffle(pool(c));
     if (!ids.length) return;
-    session = { mode: 'challenge', ids: ids, pos: 0, answers: {}, cat: cat, diff: diff,
+    session = { mode: 'challenge', ids: ids, pos: 0, answers: {}, cond: c,
       score: 0, streak: 0, pts: {}, qStart: 0, over: false };
     openQuestion(INDEX_BY_ID[ids[0]]);
   }
@@ -244,12 +259,12 @@
   /** 最高スコアを更新したら true */
   function recordBest() {
     if (!isChallenge()) return false;
-    var k = bestKey(session.cat, session.diff);
+    var k = bestKey(session.cond);
     if (session.score > (store.bestPts[k] || 0)) { store.bestPts[k] = session.score; saveStore(); return true; }
     return false;
   }
 
-  el.challengeBtn.addEventListener('click', function () { startChallenge(store.filterCat, store.filterDiff); });
+  el.challengeBtn.addEventListener('click', function () { startChallenge(cond()); });
 
   function paintFilters() {
     var paint = function (box, val) {
@@ -262,39 +277,54 @@
     paint(el.filterState, store.filterState);
   }
 
-  /** いまのしぼりこみに合う問題の添字の配列 */
+  /** いまの条件に合う問題の添字の配列（一覧用） */
   function filtered() {
-    var out = [];
-    for (var i = 0; i < N; i++) {
-      var q = DATA[i];
-      var r = store.results[q.id];
-      if (store.filterCat !== 'all' && q.category !== store.filterCat) continue;
-      if (store.filterDiff !== 'all' && String(q.difficulty) !== store.filterDiff) continue;
-      if (store.filterState === 'unsolved' && r) continue;
-      if (store.filterState === 'wrong' && (!r || r.correct)) continue;
-      out.push(i);
-    }
+    var c = cond(), out = [];
+    for (var i = 0; i < N; i++) if (matches(DATA[i], c)) out.push(i);
     return out;
   }
 
   // ───────── 一覧 ─────────
 
+  /** 問題文・選択肢の [[ ]] は下線部の印。印を外した素の文字列 */
+  function plain(s) { return String(s).replace(/\[\[|\]\]/g, ''); }
+
+  /** [[ ]] で囲んだところを下線にして、要素の中身にする */
+  function setRich(node, s) {
+    node.textContent = '';
+    String(s).split(/(\[\[[^\]]*\]\])/).forEach(function (part) {
+      if (!part) return;
+      var m = part.match(/^\[\[([^\]]*)\]\]$/);
+      if (m) {
+        var u = document.createElement('u');
+        u.className = 'mark';
+        u.textContent = m[1];
+        node.appendChild(u);
+      } else {
+        node.appendChild(document.createTextNode(part));
+      }
+    });
+  }
+
   function snippet(s) {
-    var t = String(s).replace(/\s+/g, ' ').trim();
+    var t = plain(s).replace(/\s+/g, ' ').trim();
     return t.length > 42 ? t.slice(0, 42) + '…' : t;
   }
 
   function renderList() {
     paintFilters();
 
-    var poolN = pool(store.filterCat, store.filterDiff).length;
-    el.poolCount.textContent = '当てはまる問題は ' + poolN + '問です。'
-      + (poolN === 0 ? '' : (poolN < 10 ? 'これより多い問数を押しても' + poolN + '問だけ出ます。' : ''));
+    var poolN = pool(cond()).length;
+    el.poolCount.textContent = poolN
+      ? '当てはまる問題は ' + poolN + '問です。'
+      : (store.filterState === 'wrong' ? '間違えた問題はまだありません。'
+        : store.filterState === 'unsolved' ? '未解答の問題はもうありません。' : '当てはまる問題がありません。');
+    el.sizeNote.textContent = (poolN > 0 && poolN < 10) ? 'これより多い問数を押しても' + poolN + '問だけ出ます。' : '';
     Array.prototype.forEach.call(el.sizeRow.querySelectorAll('.sizebtn'), function (b) {
       b.disabled = (poolN === 0);
     });
     el.challengeBtn.disabled = (poolN === 0);
-    el.bestScore.textContent = '自己ベスト ' + fmtNum(bestOf(store.filterCat, store.filterDiff)) + '点';
+    el.bestScore.textContent = '自己ベスト ' + fmtNum(bestOf(cond())) + '点';
 
     var list = filtered();
     el.listCount.textContent = list.length ? list.length + '問' : '当てはまる問題がありません。しぼりこみを変えてください。';
@@ -718,7 +748,7 @@
     el.mTopic.textContent = q.topic;
     el.mDiff.textContent = '★' + q.difficulty;
     el.mDiff.setAttribute('title', '難易度 ' + q.difficulty);
-    el.qtext.textContent = q.question;
+    setRich(el.qtext, q.question);
 
     putFigure(el.qFig, q.figure);
 
@@ -746,7 +776,7 @@
       k.className = 'key';
       k.textContent = LETTERS[i] || String(i + 1);
       var t = document.createElement('span');
-      t.textContent = text;
+      setRich(t, text);
       b.appendChild(k); b.appendChild(t);
       b.addEventListener('click', function () { answer(i); });
       liEl.appendChild(b);
@@ -805,8 +835,8 @@
     var ok = picked === q.answer;
     el.verdict.className = 'verdict ' + (ok ? 'ok' : 'ng');
     el.verdict.textContent = ok
-      ? '正解　' + (LETTERS[q.answer] || '') + '　' + q.choices[q.answer]
-      : '不正解　正解は ' + (LETTERS[q.answer] || '') + '　' + q.choices[q.answer];
+      ? '正解　' + (LETTERS[q.answer] || '') + '　' + plain(q.choices[q.answer])
+      : '不正解　正解は ' + (LETTERS[q.answer] || '') + '　' + plain(q.choices[q.answer]);
     if (isChallenge()) {
       var got = session.pts[q.id];
       el.verdict.textContent += (ok && got)
@@ -875,10 +905,8 @@
     });
 
     el.scoreBig.textContent = c + ' / ' + n + ' 問正解';
-    var catName = session.cat === 'all' ? '全分野' : session.cat;
-    var diffName = session.diff === 'all' ? '難易度すべて' : '難易度★' + session.diff;
     var unanswered = n - Object.keys(session.answers).length;
-    el.scoreSub.textContent = catName + '　' + diffName + '　' + n + '問'
+    el.scoreSub.textContent = condName(session.cond) + '　' + n + '問'
       + (unanswered ? '　（未解答 ' + unanswered + '問）' : '');
 
     el.resultList.innerHTML = '';
@@ -921,20 +949,18 @@
   }
 
   function finishChallenge() {
-    var prev = bestOf(session.cat, session.diff);
+    var prev = bestOf(session.cond);
     var isNew = recordBest();
     var cleared = !session.over;
 
     el.scoreBig.textContent = fmtNum(session.score) + '点';
-    var catName = session.cat === 'all' ? '全分野' : session.cat;
-    var diffName = session.diff === 'all' ? '難易度すべて' : '難易度★' + session.diff;
     el.scoreSub.innerHTML = '';
     el.scoreSub.appendChild(document.createTextNode(
-      (cleared ? '全問正解！' : 'ゲームオーバー') + '　連続正解 ' + session.streak + '問　' + catName + '　' + diffName));
+      (cleared ? '全問正解！' : 'ゲームオーバー') + '　連続正解 ' + session.streak + '問　' + condName(session.cond)));
     el.scoreSub.appendChild(document.createElement('br'));
     var bl = document.createElement('span');
     if (isNew) { bl.className = 'new-best'; bl.textContent = '自己ベスト更新（前回まで ' + fmtNum(prev) + '点）'; }
-    else bl.textContent = '自己ベスト ' + fmtNum(bestOf(session.cat, session.diff)) + '点';
+    else bl.textContent = '自己ベスト ' + fmtNum(bestOf(session.cond)) + '点';
     el.scoreSub.appendChild(bl);
 
     // 答えた問題だけを並べる。間違えて終わったなら最後の1問がそれ
@@ -953,8 +979,8 @@
 
   el.againBtn.addEventListener('click', function () {
     if (!session) return;
-    if (isChallenge()) startChallenge(session.cat, session.diff);
-    else startSession(session.cat, session.diff, session.size);
+    if (isChallenge()) startChallenge(session.cond);
+    else startSession(session.cond, session.size);
   });
 
   el.toListBtn.addEventListener('click', function () {

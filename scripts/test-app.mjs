@@ -420,7 +420,7 @@ console.log('\n■ 難易度\n');
   const d2 = boot();
   catChip(d2, '言語').click();
   diffChip(d2, '3').click();
-  ok('少ないときは注意書きが出る', d2.byId('poolCount').textContent.includes('だけ出ます'), d2.byId('poolCount').textContent);
+  ok('少ないときは注意書きが出る', d2.byId('sizeNote').textContent.includes('だけ出ます'), d2.byId('sizeNote').textContent);
   sizeBtn(d2, 10).click();
   ok(`10問を押しても ${n3v} 問しか出ない`, d2.byId('quizPos').textContent === `1 / ${n3v} 問目`, d2.byId('quizPos').textContent);
 
@@ -542,6 +542,83 @@ console.log('\n■ CSS\n');
 
   ok('使わなくなった schedule.js を読み込んでいない', !read('index.html').includes('schedule.js'));
   ok('「続きから」は残っていない', !read('index.html').includes('resumeBtn') && !read('assets/app.js').includes('resumeBtn'));
+}
+
+console.log('\n■ 下線部\n');
+{
+  const ul = QS.filter((q) => q.question.includes('下線部'));
+  const missing = ul.filter((q) => !/\[\[[^\]]+\]\]/.test(q.question)).map((q) => q.id);
+  ok(`「下線部」の問題（${ul.length}問）すべてに下線の印がある`, ul.length > 0 && missing.length === 0, missing.join(', '));
+  const broken = QS.filter((q) => [q.question, ...q.choices].some((t) => (t.match(/\[\[/g) || []).length !== (t.match(/\]\]/g) || []).length)).map((q) => q.id);
+  ok('印の開きと閉じが対になっている', broken.length === 0, broken.join(', '));
+  const usage = ul.filter((q) => q.topic === '語句の用法');
+  const noChoiceMark = usage.filter((q) => !q.choices.every((c) => c.includes('[['))).map((q) => q.id);
+  ok('語句の用法は選択肢にも下線がある', noChoiceMark.length === 0, noChoiceMark.join(', '));
+
+  const d = boot();
+  const i = QS.findIndex((q) => q.id === 'vq012');
+  rows(d)[i].click();
+  const qt = d.byId('qtext');
+  const u = qt.children.find((c) => c.tagName === 'U');
+  ok('問題文の下線部が <u> で出る', !!u && u.textContent === 'に', u ? u.textContent : 'なし');
+  ok('印の [[ ]] は画面に出ない', !qt.textContent.includes('[[') && qt.textContent.includes('先生にほめられる'), qt.textContent);
+  const ch = choices(d)[0];
+  ok('選択肢の下線部も <u> で出る', JSON.stringify(ch.children.map((c) => c.children.map((x) => x.tagName))).includes('"U"'));
+  choices(d)[QS[i].answer].click();
+  ok('正解の表示に印が残らない', !d.byId('verdict').textContent.includes('[['), d.byId('verdict').textContent);
+  d.byId('backToList').click();
+  ok('一覧の抜粋に印が残らない', !rows(d)[i].textContent.includes('[['), rows(d)[i].textContent.slice(0, 40));
+}
+
+console.log('\n■ 出題の条件（復習）\n');
+{
+  const sizeBtn = (d, n) => d.byId('sizeRow').querySelectorAll('.sizebtn').find((b) => b.getAttribute('data-size') === String(n));
+  const idxOf = (d) => Number(d.byId('mNum').textContent.match(/第(\d+)問/)[1]) - 1;
+
+  const d = boot();
+  ok('条件の枠に分野・難易度・状態が並ぶ', !!d.byId('filterCat') && !!d.byId('filterDiff') && !!d.byId('filterState'));
+  const html = read('index.html');
+  ok('条件の枠はランダム出題の枠より上', html.indexOf('id="filterState"') < html.indexOf('id="sizeRow"')
+    && html.indexOf('id="filterCat"') < html.indexOf('id="sizeRow"'));
+
+  stateChip(d, 'wrong').click();
+  ok('間違えた問題がないと案内が出る', d.byId('poolCount').textContent === '間違えた問題はまだありません。', d.byId('poolCount').textContent);
+  ok('そのときは出題のボタンが押せない', sizeBtn(d, 1).disabled === true && d.byId('challengeBtn').disabled === true);
+
+  // 3問だけ間違え、2問は正解しておく
+  stateChip(d, 'all').click();
+  const wrongIds = [0, 5, 70];
+  for (const i of [0, 1, 5, 6, 70]) {
+    rows(d)[i].click();
+    const q = QS[i];
+    choices(d)[wrongIds.includes(i) ? (q.answer + 1) % q.choices.length : q.answer].click();
+    d.byId('backToList').click();
+  }
+  stateChip(d, 'wrong').click();
+  ok('間違えた問題が3問と出る', d.byId('poolCount').textContent === '当てはまる問題は 3問です。', d.byId('poolCount').textContent);
+  ok('一覧も3問', rows(d).length === 3, String(rows(d).length));
+
+  sizeBtn(d, 10).click();
+  const got = [];
+  for (let k = 0; k < 3; k++) { got.push(idxOf(d)); d.byId('nextQ').click(); }
+  ok('ランダム出題で間違えた問題だけが出る', got.slice().sort((a, b) => a - b).join(',') === '0,5,70', got.join(','));
+  ok('結果に条件が出る', d.byId('scoreSub').textContent.includes('間違えた問題だけ'), d.byId('scoreSub').textContent);
+
+  d.byId('toListBtn').click();
+  stateChip(d, 'unsolved').click();
+  ok('未解答は解いた5問を除いた数', d.byId('poolCount').textContent === `当てはまる問題は ${N - 5}問です。`, d.byId('poolCount').textContent);
+  sizeBtn(d, 5).click();
+  const fresh = [];
+  for (let k = 0; k < 5; k++) { fresh.push(idxOf(d)); d.byId('nextQ').click(); }
+  ok('未解答だけを選ぶと解いた問題は出ない', fresh.every((i) => ![0, 1, 5, 6, 70].includes(i)), fresh.join(','));
+
+  // チャレンジも条件に従い、自己ベストは条件ごと
+  d.byId('toListBtn').click();
+  stateChip(d, 'wrong').click();
+  ok('間違えた問題の自己ベストは別に数える', d.byId('bestScore').textContent === '自己ベスト 0点', d.byId('bestScore').textContent);
+  d.byId('challengeBtn').click();
+  ok('チャレンジでも間違えた問題から出る', [0, 5, 70].includes(idxOf(d)), String(idxOf(d)));
+  d.byId('backToList').click();
 }
 
 console.log('\n■ 連続正解チャレンジ\n');

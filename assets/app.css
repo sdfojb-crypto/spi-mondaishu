@@ -195,6 +195,14 @@ main {
 
 .sec-h.flush { margin: 0; }
 
+/* 下線部 */
+u.mark { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: .22em; }
+
+.cond-line { display: flex; align-items: center; gap: .6rem; }
+.cond-k { flex: 0 0 3.2rem; font-size: .78rem; color: var(--ink-faint); }
+.pool-count { margin: .1rem 0 0; font-size: .85rem; color: var(--ink-soft); font-weight: 600; }
+.conditions + .practice { margin-top: .8rem; }
+
 .size-row { gap: .4rem; }
 
 .sizebtn {

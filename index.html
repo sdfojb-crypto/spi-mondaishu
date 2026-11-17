@@ -7,7 +7,7 @@
 <meta name="description" content="SPI対策の問題集。非言語60問・言語30問。解説つき。">
 <title>SPI 問題集</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f6d8a'/%3E%3Ctext x='16' y='23' font-size='18' font-family='sans-serif' font-weight='700' text-anchor='middle' fill='%23fff'%3EQ%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="assets/app.css?v=14">
+<link rel="stylesheet" href="assets/app.css?v=16">
 </head>
 <body>
 
@@ -28,25 +28,31 @@
 
   <!-- ───────── 問題一覧 ───────── -->
   <section id="view-list" class="view">
+    <div class="practice conditions">
+      <h2 class="sec-h flush">出題の条件</h2>
+      <p class="practice-note">ランダム出題・連続正解チャレンジ・下の問題一覧のすべてに効きます。</p>
+      <div class="cond-line"><span class="cond-k">分野</span><div class="filter-row" id="filterCat" role="group" aria-label="分野を選ぶ"></div></div>
+      <div class="cond-line"><span class="cond-k">難易度</span><div class="filter-row" id="filterDiff" role="group" aria-label="難易度を選ぶ"></div></div>
+      <div class="cond-line"><span class="cond-k">問題</span><div class="filter-row" id="filterState" role="group" aria-label="解いた状態で選ぶ"></div></div>
+      <p id="poolCount" class="pool-count"></p>
+    </div>
+
     <div class="practice">
       <h2 class="sec-h flush">ランダム出題</h2>
-      <div class="filter-row" id="filterCat" role="group" aria-label="分野を選ぶ"></div>
-      <div class="filter-row" id="filterDiff" role="group" aria-label="難易度を選ぶ"></div>
       <div class="filter-row size-row" id="sizeRow" role="group" aria-label="問題数を選ぶ"></div>
-      <p class="practice-note">分野と難易度を選んで問題数を押すと、その場でランダムに出題します。<br><span id="poolCount"></span></p>
+      <p class="practice-note">問題数を押すと、上の条件からその場でランダムに出題します。<span id="sizeNote"></span></p>
     </div>
 
     <div class="practice challenge">
       <h2 class="sec-h flush">連続正解チャレンジ</h2>
-      <p class="practice-note">上で選んだ分野と難易度から出題します。早く正解するほど高得点（最高1000点、制限時間を過ぎたら100点）。1問でも間違えたらゲームオーバーです。</p>
+      <p class="practice-note">上の条件から出題します。早く正解するほど高得点（最高1000点、制限時間を過ぎたら100点）。1問でも間違えたらゲームオーバーです。</p>
       <div class="challenge-row">
         <button id="challengeBtn" class="sizebtn" type="button">スタート</button>
         <span id="bestScore" class="best-score"></span>
       </div>
     </div>
 
-    <h2 class="sec-h">すべての問題</h2>
-    <div class="filter-row" id="filterState" role="group" aria-label="状態でしぼりこむ"></div>
+    <h2 class="sec-h">問題一覧</h2>
     <p id="listCount" class="lede"></p>
     <ul id="qlist" class="qlist"></ul>
   </section>
@@ -166,7 +172,7 @@
   <p>問題はSPIのテキストを参考に作成したオリジナルです。検証していますが誤りがある場合があります。</p>
 </footer>
 
-<script src="data/questions.js?v=14"></script>
-<script src="assets/app.js?v=14"></script>
+<script src="data/questions.js?v=16"></script>
+<script src="assets/app.js?v=16"></script>
 </body>
 </html>
